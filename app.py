@@ -155,48 +155,84 @@ def main():
             st.info(f"📄 **File ready:** {uploaded_file.name}")
             
             # Button to process the uploaded PDF
-            if st.button("🚀 Process PDF and Extract Items", type="primary", use_container_width=True):
-                with st.spinner("Reading PDF and extracting items..."):
-                    try:
-                        # Save uploaded file temporarily
-                        temp_path = Path("temp_bill.pdf")
-                        with open(temp_path, "wb") as f:
-                            f.write(st.session_state.uploaded_pdf_data)
-                        
-                        bill_text = extract_text_from_pdf(str(temp_path))
-                        
-                        if bill_text and bill_text.strip():
-                            # Debug: show first 500 chars
-                            with st.expander("🔍 Debug: View extracted text (first 500 chars)", expanded=False):
-                                st.text(f"Extracted text length: {len(bill_text)} characters")
-                                st.code(bill_text[:500])
+            process_button = st.button("🚀 Process PDF and Extract Items", type="primary", use_container_width=True, key="process_pdf_button")
+            
+            if process_button:
+                st.write("🔄 **Button clicked! Processing PDF...**")
+                
+                # Check if we have PDF data
+                if 'uploaded_pdf_data' not in st.session_state:
+                    st.error("❌ No PDF data found in session state. Please upload the file again.")
+                else:
+                    with st.spinner("Reading PDF and extracting items..."):
+                        try:
+                            # Save uploaded file temporarily
+                            temp_path = Path("temp_bill.pdf")
+                            st.write(f"📝 Saving PDF to temporary file: {temp_path}")
                             
-                            items = parse_bill_items(bill_text)
+                            with open(temp_path, "wb") as f:
+                                f.write(st.session_state.uploaded_pdf_data)
                             
-                            if items and len(items) > 0:
-                                st.session_state.items = items
-                                st.session_state.pdf_processed = True
-                                st.success(f"✅ Successfully loaded {len(items)} items from PDF!")
-                                # Clean up temp file
-                                if temp_path.exists():
-                                    temp_path.unlink()
-                                st.rerun()
+                            st.write(f"✅ PDF saved. File size: {temp_path.stat().st_size} bytes")
+                            
+                            # Extract text
+                            st.write("📖 Extracting text from PDF...")
+                            bill_text = extract_text_from_pdf(str(temp_path))
+                            
+                            st.write(f"📊 Extracted text length: {len(bill_text) if bill_text else 0} characters")
+                            
+                            if bill_text and bill_text.strip():
+                                # Always show debug info
+                                st.success("✅ Text extracted successfully!")
+                                
+                                with st.expander("🔍 Debug: View extracted text (first 1000 chars)", expanded=True):
+                                    st.text(f"Extracted text length: {len(bill_text)} characters")
+                                    st.code(bill_text[:1000])
+                                
+                                # Parse items
+                                st.write("🔍 Parsing items from text...")
+                                items = parse_bill_items(bill_text)
+                                
+                                st.write(f"📦 Found {len(items) if items else 0} items after parsing")
+                                
+                                if items and len(items) > 0:
+                                    st.session_state.items = items
+                                    st.session_state.pdf_processed = True
+                                    st.success(f"✅ Successfully loaded {len(items)} items from PDF!")
+                                    
+                                    # Show first few items as preview
+                                    with st.expander("👀 Preview first 5 items", expanded=False):
+                                        for i, item in enumerate(items[:5], 1):
+                                            st.write(f"{i}. {item['name']} - ${item['price']:.2f}")
+                                    
+                                    # Clean up temp file
+                                    if temp_path.exists():
+                                        temp_path.unlink()
+                                    st.rerun()
+                                else:
+                                    st.warning(f"⚠️ Parsed {len(items) if items else 0} items from PDF.")
+                                    st.error("No items found in PDF. The PDF format might not match expected format.")
+                                    
+                                    # Show sample lines that might be items
+                                    st.info("**Sample lines from PDF that might be items:**")
+                                    lines = bill_text.split('\n')
+                                    sample_lines = [line.strip() for line in lines if line.strip() and re.search(r'\d+\.\d{2}', line)][:10]
+                                    for line in sample_lines:
+                                        st.code(line)
+                                    
+                                    st.info("💡 **Tip:** Make sure the PDF contains text (not just images).")
                             else:
-                                st.warning(f"⚠️ Parsed {len(items) if items else 0} items from PDF.")
-                                st.error("No items found in PDF. The PDF format might not match expected format.")
-                                st.info("💡 **Tip:** Make sure the PDF contains text (not just images).")
-                        else:
-                            st.error("Could not extract text from PDF. The PDF might be image-based or corrupted.")
-                            st.info("💡 **Tip:** If your PDF is image-based, you may need OCR software to convert it to text first.")
-                        
-                        # Clean up temp file
-                        if temp_path.exists():
-                            temp_path.unlink()
-                    except Exception as e:
-                        st.error(f"Error processing PDF: {str(e)}")
-                        import traceback
-                        with st.expander("🔍 View error details", expanded=False):
-                            st.code(traceback.format_exc())
+                                st.error("❌ Could not extract text from PDF. The PDF might be image-based or corrupted.")
+                                st.info("💡 **Tip:** If your PDF is image-based, you may need OCR software to convert it to text first.")
+                            
+                            # Clean up temp file
+                            if temp_path.exists():
+                                temp_path.unlink()
+                        except Exception as e:
+                            st.error(f"❌ Error processing PDF: {str(e)}")
+                            import traceback
+                            with st.expander("🔍 View error details", expanded=True):
+                                st.code(traceback.format_exc())
         else:
             # Clear PDF data if no file is uploaded
             if 'uploaded_pdf_data' in st.session_state:
