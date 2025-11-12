@@ -141,27 +141,27 @@ def main():
         # Load bill section
         st.header("📄 Load Bill")
         
-        # Option 1: Upload PDF
+        # Upload PDF
         uploaded_file = st.file_uploader("Upload Costco Bill PDF", type=['pdf'], key="pdf_uploader")
+        
+        # Store uploaded file in session state
         if uploaded_file is not None:
-            # Use file name and size as unique identifier to avoid reprocessing
-            file_key = f"{uploaded_file.name}_{uploaded_file.size}"
+            # Save file to session state
+            if 'uploaded_pdf_data' not in st.session_state or st.session_state.get('uploaded_pdf_name') != uploaded_file.name:
+                st.session_state.uploaded_pdf_data = uploaded_file.getbuffer()
+                st.session_state.uploaded_pdf_name = uploaded_file.name
+                st.session_state.pdf_processed = False
             
-            # Check if we need to process this file
-            should_process = False
-            if 'last_uploaded_file_key' not in st.session_state:
-                should_process = True
-            elif st.session_state.last_uploaded_file_key != file_key:
-                should_process = True
+            st.info(f"📄 **File ready:** {uploaded_file.name}")
             
-            if should_process:
-                st.session_state.last_uploaded_file_key = file_key
-                with st.spinner("Reading PDF..."):
+            # Button to process the uploaded PDF
+            if st.button("🚀 Process PDF and Extract Items", type="primary", use_container_width=True):
+                with st.spinner("Reading PDF and extracting items..."):
                     try:
                         # Save uploaded file temporarily
                         temp_path = Path("temp_bill.pdf")
                         with open(temp_path, "wb") as f:
-                            f.write(uploaded_file.getbuffer())
+                            f.write(st.session_state.uploaded_pdf_data)
                         
                         bill_text = extract_text_from_pdf(str(temp_path))
                         
@@ -175,7 +175,8 @@ def main():
                             
                             if items and len(items) > 0:
                                 st.session_state.items = items
-                                st.success(f"✅ Loaded {len(items)} items from uploaded PDF!")
+                                st.session_state.pdf_processed = True
+                                st.success(f"✅ Successfully loaded {len(items)} items from PDF!")
                                 # Clean up temp file
                                 if temp_path.exists():
                                     temp_path.unlink()
@@ -183,7 +184,7 @@ def main():
                             else:
                                 st.warning(f"⚠️ Parsed {len(items) if items else 0} items from PDF.")
                                 st.error("No items found in PDF. The PDF format might not match expected format.")
-                                st.info("💡 **Tip:** Make sure the PDF contains text (not just images). Try the 'Load from bill.pdf' button if you have the file locally.")
+                                st.info("💡 **Tip:** Make sure the PDF contains text (not just images).")
                         else:
                             st.error("Could not extract text from PDF. The PDF might be image-based or corrupted.")
                             st.info("💡 **Tip:** If your PDF is image-based, you may need OCR software to convert it to text first.")
@@ -196,34 +197,13 @@ def main():
                         import traceback
                         with st.expander("🔍 View error details", expanded=False):
                             st.code(traceback.format_exc())
-        
-        # Option 2: Load from bill.pdf
-        if st.button("🔄 Load from bill.pdf"):
-            pdf_path = "bill.pdf"
-            if Path(pdf_path).exists():
-                with st.spinner("Reading PDF..."):
-                    try:
-                        bill_text = extract_text_from_pdf(pdf_path)
-                        if bill_text and bill_text.strip():
-                            st.text(f"Extracted text length: {len(bill_text)} characters")
-                            items = parse_bill_items(bill_text)
-                            if items and len(items) > 0:
-                                st.session_state.items = items
-                                st.success(f"✅ Loaded {len(items)} items from PDF!")
-                                st.rerun()
-                            else:
-                                st.warning(f"⚠️ Parsed {len(items) if items else 0} items from PDF.")
-                                st.info("**Debug Info:** First 500 characters of extracted text:")
-                                st.code(bill_text[:500])
-                                st.error("No items found in PDF. Please check the PDF format.")
-                        else:
-                            st.error("Could not extract text from PDF.")
-                    except Exception as e:
-                        st.error(f"Error processing PDF: {str(e)}")
-                        import traceback
-                        st.code(traceback.format_exc())
-            else:
-                st.error(f"PDF file '{pdf_path}' not found.")
+        else:
+            # Clear PDF data if no file is uploaded
+            if 'uploaded_pdf_data' in st.session_state:
+                del st.session_state.uploaded_pdf_data
+            if 'uploaded_pdf_name' in st.session_state:
+                del st.session_state.uploaded_pdf_name
+            st.session_state.pdf_processed = False
         
         st.markdown("---")
         
@@ -253,21 +233,8 @@ def main():
         st.info("""
         **How to load a bill:**
         1. **Upload PDF:** Use the file uploader in the sidebar to upload your Costco bill PDF
-        2. **Or use bill.pdf:** Click the 'Load from bill.pdf' button if you have a file named bill.pdf in the project directory
+        2. **Click Process:** After uploading, click the "🚀 Process PDF and Extract Items" button in the sidebar
         """)
-        
-        # Try to load automatically (only on first load, not every rerun)
-        if 'auto_load_attempted' not in st.session_state:
-            st.session_state.auto_load_attempted = True
-            pdf_path = "bill.pdf"
-            if Path(pdf_path).exists():
-                with st.spinner("Loading bill automatically..."):
-                    bill_text = extract_text_from_pdf(pdf_path)
-                    if bill_text.strip():
-                        items = parse_bill_items(bill_text)
-                        if items and len(items) > 0:
-                            st.session_state.items = items
-                            st.rerun()
     else:
         # Display items with checkboxes
         st.header("📋 Bill Items - Check what you got")
