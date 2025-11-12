@@ -122,7 +122,7 @@ def main():
     st.markdown("---")
     
     # Initialize session state
-    if 'items' not in st.session_state:
+    if 'items' not in st.session_state or not isinstance(st.session_state.items, list):
         st.session_state.items = []
     if 'selections' not in st.session_state:
         st.session_state.selections = load_selections()
@@ -209,7 +209,11 @@ def main():
     else:
         # Display items with checkboxes
         st.header("📋 Bill Items - Check what you got")
-        st.markdown(f"**Total Items:** {len(st.session_state.items)}")
+        # Ensure items is a list
+        if not isinstance(st.session_state.items, list):
+            st.session_state.items = []
+        items_list = st.session_state.items if isinstance(st.session_state.items, list) else []
+        st.markdown(f"**Total Items:** {len(items_list)}")
         
         # Initialize selections for current user if not exists
         if selected_user not in st.session_state.selections:
@@ -226,17 +230,20 @@ def main():
         # Search/filter functionality
         search_term = st.text_input("🔍 Search items", placeholder="Type to filter items...", key="search_input")
         
+        # Ensure items is a list
+        items_list = st.session_state.items if isinstance(st.session_state.items, list) else []
+        
         # Filter items based on search - store indices instead of items
-        filtered_indices = set(range(len(st.session_state.items)))
+        filtered_indices = set(range(len(items_list)))
         if search_term:
-            filtered_indices = {idx for idx, item in enumerate(st.session_state.items) 
+            filtered_indices = {idx for idx, item in enumerate(items_list) 
                               if search_term.lower() in item['name'].lower()}
-            st.info(f"Showing {len(filtered_indices)} of {len(st.session_state.items)} items")
+            st.info(f"Showing {len(filtered_indices)} of {len(items_list)} items")
         
         # Display items with checkboxes
         if filtered_indices:
             # Create a container for all checkboxes
-            for idx, item in enumerate(st.session_state.items):
+            for idx, item in enumerate(items_list):
                 # Only show if in filtered list
                 if idx not in filtered_indices:
                     continue
@@ -285,7 +292,9 @@ def main():
         
         # Calculate totals for each user
         user_items = defaultdict(list)
-        item_dict = {f"{item['name']}_{idx}": item for idx, item in enumerate(st.session_state.items)}
+        # Ensure items is a list before enumerating
+        items_list = st.session_state.items if isinstance(st.session_state.items, list) else []
+        item_dict = {f"{item['name']}_{idx}": item for idx, item in enumerate(items_list)}
         
         for user in DEFAULT_USERS:
             if user in st.session_state.selections:
@@ -362,7 +371,8 @@ def main():
                 selected_items = st.session_state.selections.get(user, [])
                 if selected_items:
                     st.markdown(f"### {user} ({len(selected_items)} items)")
-                    item_dict = {f"{item['name']}_{idx}": item for idx, item in enumerate(st.session_state.items)}
+                    items_list = st.session_state.items if isinstance(st.session_state.items, list) else []
+                    item_dict = {f"{item['name']}_{idx}": item for idx, item in enumerate(items_list)}
                     for item_id in selected_items:
                         if item_id in item_dict:
                             item = item_dict[item_id]
@@ -372,7 +382,8 @@ def main():
         
         # Progress indicator
         total_selected = sum(len(st.session_state.selections.get(user, [])) for user in DEFAULT_USERS)
-        total_items = len(st.session_state.items)
+        items_list = st.session_state.items if isinstance(st.session_state.items, list) else []
+        total_items = len(items_list)
         progress = total_selected / (total_items * len(DEFAULT_USERS)) if total_items > 0 else 0
         st.progress(progress)
         st.caption(f"Selection progress: {total_selected} selections made across all users")
