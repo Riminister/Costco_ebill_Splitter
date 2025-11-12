@@ -60,10 +60,36 @@ Costco_Bill_Order/
 └── README.md          # This file
 ```
 
+## Deployment to Streamlit Cloud
+
+To deploy this app so everyone can access it online:
+
+1. **Push your code to GitHub** (already done! ✅)
+
+2. **Go to Streamlit Cloud:**
+   - Visit [share.streamlit.io](https://share.streamlit.io)
+   - Sign in with your GitHub account
+
+3. **Deploy the app:**
+   - Click "New app"
+   - Select your repository: `Riminister/Costco_ebill_Splitter`
+   - Set the main file path to: `app.py`
+   - Click "Deploy"
+
+4. **Access your app:**
+   - Your app will be available at: `https://your-app-name.streamlit.app`
+   - Share this URL with all 6 users (Alex, Daniel, Jacob, Jordan, Judah, Adam)
+
+5. **Using the deployed app:**
+   - Users can upload their Costco bill PDF directly in the app
+   - No need to have `bill.pdf` in the repository
+   - All selections are saved and shared across all users
+
 ## Notes
 
 - The app handles tax automatically (13% HST for items marked with 'Y' in the PDF)
 - Discounts are automatically applied to the previous item
 - Selections are saved in `selections.json` so multiple users can use the app at the same time
 - The original command-line script (`python.py`) is still available for non-web use
+- **For Streamlit Cloud:** Users upload PDFs directly - no need for `bill.pdf` file
 
