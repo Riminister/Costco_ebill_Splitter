@@ -198,7 +198,7 @@ def main():
                                 # Always show debug info
                                 st.success("✅ Text extracted successfully!")
                                 
-                                with st.expander("🔍 Debug: View extracted text (first 1000 chars)", expanded=True):
+                                with st.expander("🔍 Debug: View extracted text (first 1000 chars)", expanded=False):
                                     st.text(f"Extracted text length: {len(bill_text)} characters")
                                     st.code(bill_text[:1000])
                                 
@@ -209,12 +209,13 @@ def main():
                                 st.write(f"📦 Found {len(items) if items else 0} items after parsing")
                                 
                                 if items and len(items) > 0:
+                                    # Store items in session state
                                     st.session_state.items = items
                                     st.session_state.pdf_processed = True
                                     st.success(f"✅ Successfully loaded {len(items)} items from PDF!")
                                     
                                     # Show first few items as preview
-                                    with st.expander("👀 Preview first 5 items", expanded=True):
+                                    with st.expander("👀 Preview first 5 items", expanded=False):
                                         for i, item in enumerate(items[:5], 1):
                                             st.write(f"{i}. {item['name']} - ${item['price']:.2f}")
                                     
@@ -222,10 +223,9 @@ def main():
                                     if temp_path.exists():
                                         temp_path.unlink()
                                     
-                                    # Don't rerun immediately - let user see the results
-                                    # Use a button to continue
-                                    if st.button("✅ Continue to Item Selection", type="primary"):
-                                        st.rerun()
+                                    # Automatically rerun to show items in checklist
+                                    st.info("🔄 Redirecting to item selection...")
+                                    st.rerun()
                                 else:
                                     st.warning(f"⚠️ Parsed {len(items) if items else 0} items from PDF.")
                                     st.error("❌ No items found in PDF. The PDF format might not match expected format.")
@@ -333,10 +333,15 @@ def main():
     else:
         # Display items with checkboxes
         st.header("📋 Bill Items - Check what you got")
-        # Ensure items is a list
+        
+        # Ensure items is a list and get it
         if not isinstance(st.session_state.items, list):
             st.session_state.items = []
         items_list = st.session_state.items if isinstance(st.session_state.items, list) else []
+        
+        # Debug info
+        if st.session_state.get('pdf_processed', False):
+            st.success(f"✅ **{len(items_list)} items loaded and ready to select!**")
         
         if len(items_list) == 0:
             st.error("⚠️ Items list is empty. Please reload the PDF.")
