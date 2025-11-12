@@ -228,11 +228,9 @@ def main():
                                     # Reset the processing flag
                                     st.session_state.should_process_pdf = False
                                     
-                                    # Offer button to refresh and see items
-                                    st.info("✅ **Items loaded successfully!**")
-                                    if st.button("🔄 Refresh Page to See Items", type="primary", key="refresh_after_load"):
-                                        st.rerun()
-                                    st.markdown("---")
+                                    # Automatically rerun to show items - they're already in session_state
+                                    st.success(f"✅ **Successfully loaded {len(items)} items!** Showing them now...")
+                                    st.rerun()
                                 else:
                                     # Reset flag even on failure
                                     st.session_state.should_process_pdf = False
@@ -333,6 +331,10 @@ def main():
     # Check if items list is empty (not just falsy, but actually empty list)
     items_list = st.session_state.items if isinstance(st.session_state.items, list) else []
     
+    # Debug: Show what's in session state
+    if st.session_state.get('pdf_processed', False):
+        st.sidebar.write(f"🔍 Debug: {len(items_list)} items in session state")
+    
     if not items_list or len(items_list) == 0:
         st.warning("⚠️ No items loaded. Please upload a PDF and click 'Process PDF and Extract Items' in the sidebar.")
         
@@ -351,13 +353,16 @@ def main():
             st.session_state.items = []
         items_list = st.session_state.items if isinstance(st.session_state.items, list) else []
         
-        # Debug info
-        if st.session_state.get('pdf_processed', False):
-            st.success(f"✅ **{len(items_list)} items loaded and ready to select!**")
+        # Debug info - always show item count
+        st.info(f"📊 **Items in memory: {len(items_list)}**")
         
         if len(items_list) == 0:
             st.error("⚠️ Items list is empty. Please reload the PDF.")
+            # Show what's actually in session state for debugging
+            st.write(f"Debug - session_state.items type: {type(st.session_state.items)}")
+            st.write(f"Debug - session_state.items value: {st.session_state.items}")
         else:
+            st.success(f"✅ **{len(items_list)} items ready to select!**")
             st.markdown(f"**Total Items:** {len(items_list)}")
         
         # Initialize selections for current user if not exists
