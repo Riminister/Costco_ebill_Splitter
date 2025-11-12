@@ -151,13 +151,27 @@ def main():
                 st.session_state.uploaded_pdf_data = uploaded_file.getbuffer()
                 st.session_state.uploaded_pdf_name = uploaded_file.name
                 st.session_state.pdf_processed = False
+                st.session_state.button_clicked = False
             
             st.info(f"📄 **File ready:** {uploaded_file.name}")
-            
-            # Button to process the uploaded PDF
+        
+        # Button to process the uploaded PDF (always show if file is uploaded or in session state)
+        has_pdf_data = uploaded_file is not None or 'uploaded_pdf_data' in st.session_state
+        
+        if has_pdf_data:
+            st.markdown("---")
             process_button = st.button("🚀 Process PDF and Extract Items", type="primary", use_container_width=True, key="process_pdf_button")
             
+            # Use session state to track button clicks more reliably
             if process_button:
+                st.session_state.button_clicked = True
+                st.session_state.should_process_pdf = True
+            
+            # Process PDF if button was clicked
+            if st.session_state.get('should_process_pdf', False) and 'uploaded_pdf_data' in st.session_state:
+                st.session_state.should_process_pdf = False  # Reset flag
+                
+                st.write("🔄 **Button clicked! Processing PDF...**")
                 st.write("🔄 **Button clicked! Processing PDF...**")
                 
                 # Check if we have PDF data
