@@ -228,8 +228,10 @@ def main():
                                     # Reset the processing flag
                                     st.session_state.should_process_pdf = False
                                     
-                                    # Don't rerun - let the items display naturally below
-                                    st.info("✅ **Items are now available in the checklist below! Scroll down to see them.**")
+                                    # Offer button to refresh and see items
+                                    st.info("✅ **Items loaded successfully!**")
+                                    if st.button("🔄 Refresh Page to See Items", type="primary", key="refresh_after_load"):
+                                        st.rerun()
                                     st.markdown("---")
                                 else:
                                     # Reset flag even on failure
