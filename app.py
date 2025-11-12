@@ -172,7 +172,6 @@ def main():
                 st.session_state.should_process_pdf = False  # Reset flag
                 
                 st.write("🔄 **Button clicked! Processing PDF...**")
-                st.write("🔄 **Button clicked! Processing PDF...**")
                 
                 # Check if we have PDF data
                 if 'uploaded_pdf_data' not in st.session_state:
