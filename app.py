@@ -144,50 +144,84 @@ def main():
         # Option 1: Upload PDF
         uploaded_file = st.file_uploader("Upload Costco Bill PDF", type=['pdf'], key="pdf_uploader")
         if uploaded_file is not None:
-            # Check if this is a new upload (compare file ID)
-            file_id = uploaded_file.file_id if hasattr(uploaded_file, 'file_id') else id(uploaded_file)
-            if 'last_uploaded_file_id' not in st.session_state or st.session_state.last_uploaded_file_id != file_id:
-                st.session_state.last_uploaded_file_id = file_id
+            # Use file name and size as unique identifier to avoid reprocessing
+            file_key = f"{uploaded_file.name}_{uploaded_file.size}"
+            
+            # Check if we need to process this file
+            should_process = False
+            if 'last_uploaded_file_key' not in st.session_state:
+                should_process = True
+            elif st.session_state.last_uploaded_file_key != file_key:
+                should_process = True
+            
+            if should_process:
+                st.session_state.last_uploaded_file_key = file_key
                 with st.spinner("Reading PDF..."):
-                    # Save uploaded file temporarily
-                    temp_path = Path("temp_bill.pdf")
-                    with open(temp_path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-                    
-                    bill_text = extract_text_from_pdf(str(temp_path))
-                    if bill_text.strip():
-                        items = parse_bill_items(bill_text)
-                        if items and len(items) > 0:
-                            st.session_state.items = items
-                            st.success(f"✅ Loaded {len(items)} items from uploaded PDF!")
-                            # Clean up temp file
-                            if temp_path.exists():
-                                temp_path.unlink()
-                            st.rerun()
+                    try:
+                        # Save uploaded file temporarily
+                        temp_path = Path("temp_bill.pdf")
+                        with open(temp_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        
+                        bill_text = extract_text_from_pdf(str(temp_path))
+                        
+                        if bill_text and bill_text.strip():
+                            # Debug: show first 500 chars
+                            with st.expander("🔍 Debug: View extracted text (first 500 chars)", expanded=False):
+                                st.text(f"Extracted text length: {len(bill_text)} characters")
+                                st.code(bill_text[:500])
+                            
+                            items = parse_bill_items(bill_text)
+                            
+                            if items and len(items) > 0:
+                                st.session_state.items = items
+                                st.success(f"✅ Loaded {len(items)} items from uploaded PDF!")
+                                # Clean up temp file
+                                if temp_path.exists():
+                                    temp_path.unlink()
+                                st.rerun()
+                            else:
+                                st.warning(f"⚠️ Parsed {len(items) if items else 0} items from PDF.")
+                                st.error("No items found in PDF. The PDF format might not match expected format.")
+                                st.info("💡 **Tip:** Make sure the PDF contains text (not just images). Try the 'Load from bill.pdf' button if you have the file locally.")
                         else:
-                            st.error("No items found in PDF. Please check the PDF format.")
-                    else:
-                        st.error("Could not extract text from PDF.")
-                    # Clean up temp file
-                    if temp_path.exists():
-                        temp_path.unlink()
+                            st.error("Could not extract text from PDF. The PDF might be image-based or corrupted.")
+                            st.info("💡 **Tip:** If your PDF is image-based, you may need OCR software to convert it to text first.")
+                        
+                        # Clean up temp file
+                        if temp_path.exists():
+                            temp_path.unlink()
+                    except Exception as e:
+                        st.error(f"Error processing PDF: {str(e)}")
+                        import traceback
+                        with st.expander("🔍 View error details", expanded=False):
+                            st.code(traceback.format_exc())
         
         # Option 2: Load from bill.pdf
         if st.button("🔄 Load from bill.pdf"):
             pdf_path = "bill.pdf"
             if Path(pdf_path).exists():
                 with st.spinner("Reading PDF..."):
-                    bill_text = extract_text_from_pdf(pdf_path)
-                    if bill_text.strip():
-                        items = parse_bill_items(bill_text)
-                        if items:
-                            st.session_state.items = items
-                            st.success(f"✅ Loaded {len(items)} items from PDF!")
-                            st.rerun()
+                    try:
+                        bill_text = extract_text_from_pdf(pdf_path)
+                        if bill_text and bill_text.strip():
+                            st.text(f"Extracted text length: {len(bill_text)} characters")
+                            items = parse_bill_items(bill_text)
+                            if items and len(items) > 0:
+                                st.session_state.items = items
+                                st.success(f"✅ Loaded {len(items)} items from PDF!")
+                                st.rerun()
+                            else:
+                                st.warning(f"⚠️ Parsed {len(items) if items else 0} items from PDF.")
+                                st.info("**Debug Info:** First 500 characters of extracted text:")
+                                st.code(bill_text[:500])
+                                st.error("No items found in PDF. Please check the PDF format.")
                         else:
-                            st.error("No items found in PDF. Please check the PDF format.")
-                    else:
-                        st.error("Could not extract text from PDF.")
+                            st.error("Could not extract text from PDF.")
+                    except Exception as e:
+                        st.error(f"Error processing PDF: {str(e)}")
+                        import traceback
+                        st.code(traceback.format_exc())
             else:
                 st.error(f"PDF file '{pdf_path}' not found.")
         
