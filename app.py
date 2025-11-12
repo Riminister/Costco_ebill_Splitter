@@ -214,26 +214,72 @@ def main():
                                     st.success(f"✅ Successfully loaded {len(items)} items from PDF!")
                                     
                                     # Show first few items as preview
-                                    with st.expander("👀 Preview first 5 items", expanded=False):
+                                    with st.expander("👀 Preview first 5 items", expanded=True):
                                         for i, item in enumerate(items[:5], 1):
                                             st.write(f"{i}. {item['name']} - ${item['price']:.2f}")
                                     
                                     # Clean up temp file
                                     if temp_path.exists():
                                         temp_path.unlink()
-                                    st.rerun()
+                                    
+                                    # Don't rerun immediately - let user see the results
+                                    # Use a button to continue
+                                    if st.button("✅ Continue to Item Selection", type="primary"):
+                                        st.rerun()
                                 else:
                                     st.warning(f"⚠️ Parsed {len(items) if items else 0} items from PDF.")
-                                    st.error("No items found in PDF. The PDF format might not match expected format.")
+                                    st.error("❌ No items found in PDF. The PDF format might not match expected format.")
                                     
-                                    # Show sample lines that might be items
-                                    st.info("**Sample lines from PDF that might be items:**")
+                                    # Show detailed parsing debug info
+                                    st.markdown("### 🔍 Parsing Debug Information")
+                                    
+                                    # Show all lines with prices
                                     lines = bill_text.split('\n')
-                                    sample_lines = [line.strip() for line in lines if line.strip() and re.search(r'\d+\.\d{2}', line)][:10]
-                                    for line in sample_lines:
-                                        st.code(line)
+                                    lines_with_prices = []
+                                    for line in lines:
+                                        line = line.strip()
+                                        if line and re.search(r'\d+\.\d{2}', line):
+                                            lines_with_prices.append(line)
                                     
-                                    st.info("💡 **Tip:** Make sure the PDF contains text (not just images).")
+                                    st.write(f"**Found {len(lines_with_prices)} lines with prices:**")
+                                    with st.expander("View all lines with prices", expanded=True):
+                                        for i, line in enumerate(lines_with_prices[:20], 1):
+                                            st.code(f"{i}. {line}")
+                                    
+                                    # Show why lines were rejected
+                                    st.write("**Testing why items weren't parsed:**")
+                                    test_lines = lines_with_prices[:5]
+                                    for test_line in test_lines:
+                                        st.write(f"**Line:** `{test_line}`")
+                                        
+                                        # Test each filter
+                                        price_match = re.search(r'\$?(\d+\.\d{2})', test_line)
+                                        if price_match:
+                                            price = float(price_match.group(1))
+                                            st.write(f"  - Price found: ${price:.2f}")
+                                            
+                                            if price == 0.00:
+                                                st.write(f"  - ❌ Rejected: Zero price")
+                                                continue
+                                            
+                                            # Extract item name
+                                            item_name = re.sub(r'\$?\d+\.\d{2}\s*[YN-]?\s*$', '', test_line).strip()
+                                            item_name = re.sub(r'^\d+\s+', '', item_name)
+                                            
+                                            st.write(f"  - Item name after cleaning: `{item_name}`")
+                                            
+                                            if len(item_name) < 3:
+                                                st.write(f"  - ❌ Rejected: Name too short ({len(item_name)} chars)")
+                                            elif item_name.isdigit():
+                                                st.write(f"  - ❌ Rejected: Name is only digits")
+                                            elif any(char in item_name.upper() for char in ['-', '*']) and not '/' in item_name:
+                                                st.write(f"  - ❌ Rejected: Looks like summary line")
+                                            else:
+                                                st.write(f"  - ✅ Would be accepted as item!")
+                                        
+                                        st.markdown("---")
+                                    
+                                    st.info("💡 **Tip:** Make sure the PDF contains text (not just images). The parsing looks for lines with prices in format like 'ITEM NAME 12.99 Y'")
                             else:
                                 st.error("❌ Could not extract text from PDF. The PDF might be image-based or corrupted.")
                                 st.info("💡 **Tip:** If your PDF is image-based, you may need OCR software to convert it to text first.")
