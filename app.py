@@ -169,7 +169,7 @@ def main():
             
             # Process PDF if button was clicked
             if st.session_state.get('should_process_pdf', False) and 'uploaded_pdf_data' in st.session_state:
-                st.session_state.should_process_pdf = False  # Reset flag
+                # Don't reset flag yet - we'll do it after processing
                 
                 st.write("🔄 **Button clicked! Processing PDF...**")
                 
@@ -212,10 +212,12 @@ def main():
                                     # Store items in session state
                                     st.session_state.items = items
                                     st.session_state.pdf_processed = True
+                                    
                                     st.success(f"✅ Successfully loaded {len(items)} items from PDF!")
+                                    st.balloons()  # Celebration!
                                     
                                     # Show first few items as preview
-                                    with st.expander("👀 Preview first 5 items", expanded=False):
+                                    with st.expander("👀 Preview first 5 items", expanded=True):
                                         for i, item in enumerate(items[:5], 1):
                                             st.write(f"{i}. {item['name']} - ${item['price']:.2f}")
                                     
@@ -223,10 +225,16 @@ def main():
                                     if temp_path.exists():
                                         temp_path.unlink()
                                     
-                                    # Automatically rerun to show items in checklist
-                                    st.info("🔄 Redirecting to item selection...")
-                                    st.rerun()
+                                    # Reset the processing flag
+                                    st.session_state.should_process_pdf = False
+                                    
+                                    # Don't rerun - let the items display naturally below
+                                    st.info("✅ **Items are now available in the checklist below! Scroll down to see them.**")
+                                    st.markdown("---")
                                 else:
+                                    # Reset flag even on failure
+                                    st.session_state.should_process_pdf = False
+                                    
                                     st.warning(f"⚠️ Parsed {len(items) if items else 0} items from PDF.")
                                     st.error("❌ No items found in PDF. The PDF format might not match expected format.")
                                     
@@ -281,6 +289,7 @@ def main():
                                     
                                     st.info("💡 **Tip:** Make sure the PDF contains text (not just images). The parsing looks for lines with prices in format like 'ITEM NAME 12.99 Y'")
                             else:
+                                st.session_state.should_process_pdf = False
                                 st.error("❌ Could not extract text from PDF. The PDF might be image-based or corrupted.")
                                 st.info("💡 **Tip:** If your PDF is image-based, you may need OCR software to convert it to text first.")
                             
@@ -288,6 +297,7 @@ def main():
                             if temp_path.exists():
                                 temp_path.unlink()
                         except Exception as e:
+                            st.session_state.should_process_pdf = False
                             st.error(f"❌ Error processing PDF: {str(e)}")
                             import traceback
                             with st.expander("🔍 View error details", expanded=True):
