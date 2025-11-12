@@ -138,8 +138,31 @@ def main():
         st.markdown("---")
         st.info(f"**Selected:** {selected_user}")
         
-        # Load bill button
-        if st.button("🔄 Reload Bill from PDF"):
+        # Load bill section
+        st.header("📄 Load Bill")
+        
+        # Option 1: Upload PDF
+        uploaded_file = st.file_uploader("Upload Costco Bill PDF", type=['pdf'], key="pdf_uploader")
+        if uploaded_file is not None:
+            with st.spinner("Reading PDF..."):
+                # Save uploaded file temporarily
+                temp_path = Path("temp_bill.pdf")
+                with open(temp_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                bill_text = extract_text_from_pdf(str(temp_path))
+                if bill_text.strip():
+                    items = parse_bill_items(bill_text)
+                    st.session_state.items = items
+                    st.success(f"✅ Loaded {len(items)} items from uploaded PDF!")
+                    # Clean up temp file
+                    if temp_path.exists():
+                        temp_path.unlink()
+                else:
+                    st.error("Could not extract text from PDF.")
+        
+        # Option 2: Load from bill.pdf
+        if st.button("🔄 Load from bill.pdf"):
             pdf_path = "bill.pdf"
             if Path(pdf_path).exists():
                 with st.spinner("Reading PDF..."):
@@ -147,11 +170,28 @@ def main():
                     if bill_text.strip():
                         items = parse_bill_items(bill_text)
                         st.session_state.items = items
-                        st.success(f"Loaded {len(items)} items from PDF!")
+                        st.success(f"✅ Loaded {len(items)} items from PDF!")
                     else:
                         st.error("Could not extract text from PDF.")
             else:
                 st.error(f"PDF file '{pdf_path}' not found.")
+        
+        st.markdown("---")
+        
+        # Clear selections button
+        if st.button("🗑️ Clear My Selections", type="secondary"):
+            if selected_user in st.session_state.selections:
+                st.session_state.selections[selected_user] = []
+                save_selections(st.session_state.selections)
+                st.success("Your selections have been cleared!")
+                st.rerun()
+        
+        # Clear all selections button
+        if st.button("⚠️ Clear All Selections", type="secondary"):
+            st.session_state.selections = {}
+            save_selections({})
+            st.success("All selections have been cleared!")
+            st.rerun()
     
     # Main content area
     if not st.session_state.items:
@@ -183,42 +223,60 @@ def main():
         with col2:
             st.subheader("Price")
         
-        # Display items with checkboxes
-        updated = False
-        for idx, item in enumerate(st.session_state.items):
-            item_id = f"{item['name']}_{idx}"
-            is_checked = item_id in st.session_state.selections[selected_user]
-            
-            col1, col2, col3 = st.columns([0.1, 2.9, 1])
-            
-            with col1:
-                checked = st.checkbox(
-                    "",
-                    value=is_checked,
-                    key=f"checkbox_{selected_user}_{item_id}",
-                    label_visibility="collapsed"
-                )
-            
-            with col2:
-                st.write(item['name'])
-            
-            with col3:
-                st.write(f"**${item['price']:.2f}**")
-            
-            # Update selections if checkbox changed
-            if checked != is_checked:
-                updated = True
-                if checked:
-                    if item_id not in st.session_state.selections[selected_user]:
-                        st.session_state.selections[selected_user].append(item_id)
-                else:
-                    if item_id in st.session_state.selections[selected_user]:
-                        st.session_state.selections[selected_user].remove(item_id)
+        # Search/filter functionality
+        search_term = st.text_input("🔍 Search items", placeholder="Type to filter items...", key="search_input")
         
-        # Save selections if updated
-        if updated:
-            save_selections(st.session_state.selections)
-            st.rerun()
+        # Filter items based on search - store indices instead of items
+        filtered_indices = set(range(len(st.session_state.items)))
+        if search_term:
+            filtered_indices = {idx for idx, item in enumerate(st.session_state.items) 
+                              if search_term.lower() in item['name'].lower()}
+            st.info(f"Showing {len(filtered_indices)} of {len(st.session_state.items)} items")
+        
+        # Display items with checkboxes
+        if filtered_indices:
+            # Create a container for all checkboxes
+            for idx, item in enumerate(st.session_state.items):
+                # Only show if in filtered list
+                if idx not in filtered_indices:
+                    continue
+                    
+                item_id = f"{item['name']}_{idx}"
+                is_checked = item_id in st.session_state.selections.get(selected_user, [])
+                
+                col1, col2, col3 = st.columns([0.1, 2.9, 1])
+                
+                with col1:
+                    checked = st.checkbox(
+                        "",
+                        value=is_checked,
+                        key=f"checkbox_{selected_user}_{item_id}",
+                        label_visibility="collapsed"
+                    )
+                
+                with col2:
+                    # Highlight checked items
+                    if checked:
+                        st.markdown(f"✅ **{item['name']}**")
+                    else:
+                        st.write(item['name'])
+                
+                with col3:
+                    st.write(f"**${item['price']:.2f}**")
+                
+                # Update selections immediately when checkbox changes
+                if checked and item_id not in st.session_state.selections.get(selected_user, []):
+                    if selected_user not in st.session_state.selections:
+                        st.session_state.selections[selected_user] = []
+                    st.session_state.selections[selected_user].append(item_id)
+                    save_selections(st.session_state.selections)
+                    st.rerun()
+                elif not checked and item_id in st.session_state.selections.get(selected_user, []):
+                    st.session_state.selections[selected_user].remove(item_id)
+                    save_selections(st.session_state.selections)
+                    st.rerun()
+        elif search_term:
+            st.warning("No items match your search.")
         
         st.markdown("---")
         
@@ -261,22 +319,34 @@ def main():
             
             split_summary[user].append(('TOTAL', total))
         
-        # Display summary in columns
+        # Display summary in columns with better formatting
         cols = st.columns(3)
         for idx, user in enumerate(DEFAULT_USERS):
             with cols[idx % 3]:
-                with st.expander(f"**{user}**", expanded=False):
-                    user_total = 0
-                    for entry in split_summary[user]:
-                        if isinstance(entry, tuple) and entry[0] == 'TOTAL':
-                            user_total = entry[1]
+                user_total = 0
+                items_list = []
+                for entry in split_summary[user]:
+                    if isinstance(entry, tuple) and entry[0] == 'TOTAL':
+                        user_total = entry[1]
+                    else:
+                        items_list.append(entry)
+                
+                # Color code based on total
+                if user_total > 0:
+                    with st.expander(f"**{user}** - ${user_total:.2f}", expanded=(user == selected_user)):
+                        if items_list:
+                            for entry in items_list:
+                                st.write(f"• {entry['name']}")
+                                if entry['shared_with'] > 1:
+                                    st.caption(f"  ${entry['price']:.2f} (shared with {entry['shared_with']} people)")
+                                else:
+                                    st.caption(f"  ${entry['price']:.2f}")
                         else:
-                            st.write(f"• {entry['name']}")
-                            if entry['shared_with'] > 1:
-                                st.caption(f"  ${entry['price']:.2f} (shared with {entry['shared_with']} people)")
-                            else:
-                                st.caption(f"  ${entry['price']:.2f}")
-                    st.markdown(f"### **Total: ${user_total:.2f}**")
+                            st.write("No items selected")
+                        st.markdown(f"**Total: ${user_total:.2f}**")
+                else:
+                    with st.expander(f"**{user}** - $0.00", expanded=False):
+                        st.write("No items selected")
         
         # Grand total
         grand_total = sum(entry[1] for user in DEFAULT_USERS 
@@ -287,13 +357,25 @@ def main():
         st.markdown(f"### **Grand Total: ${grand_total:.2f}**")
         
         # Show who selected what (for transparency)
-        with st.expander("👥 View All Selections"):
+        with st.expander("👥 View All Selections (Detailed)"):
             for user in DEFAULT_USERS:
                 selected_items = st.session_state.selections.get(user, [])
                 if selected_items:
-                    st.write(f"**{user}** selected {len(selected_items)} item(s)")
+                    st.markdown(f"### {user} ({len(selected_items)} items)")
+                    item_dict = {f"{item['name']}_{idx}": item for idx, item in enumerate(st.session_state.items)}
+                    for item_id in selected_items:
+                        if item_id in item_dict:
+                            item = item_dict[item_id]
+                            st.write(f"  • {item['name']} - ${item['price']:.2f}")
                 else:
-                    st.write(f"**{user}** has not selected any items yet")
+                    st.write(f"**{user}** - No items selected yet")
+        
+        # Progress indicator
+        total_selected = sum(len(st.session_state.selections.get(user, [])) for user in DEFAULT_USERS)
+        total_items = len(st.session_state.items)
+        progress = total_selected / (total_items * len(DEFAULT_USERS)) if total_items > 0 else 0
+        st.progress(progress)
+        st.caption(f"Selection progress: {total_selected} selections made across all users")
 
 if __name__ == "__main__":
     main()
