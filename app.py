@@ -227,7 +227,7 @@ def main():
     items_list = st.session_state.items if isinstance(st.session_state.items, list) else []
     
     if not items_list or len(items_list) == 0:
-        st.warning("⚠️ No items loaded. Please upload a PDF or click 'Load from bill.pdf' in the sidebar.")
+        st.warning("⚠️ No items loaded. Please upload a PDF and click 'Process PDF and Extract Items' in the sidebar.")
         
         # Show instructions
         st.info("""
